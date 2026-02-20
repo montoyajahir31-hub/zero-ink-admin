@@ -7,7 +7,7 @@ from datetime import datetime
 st.set_page_config(page_title="ZERO INK Admin", layout="wide")
 
 # Conexión con Google Sheets usando el enlace que me pasaste
-url = "https://docs.google.com/spreadsheets/d/1plPWAFs9LsYTqfZqxgiFo9hCOAwtQEtacn05G0kP8YA/edit?usp=sharing"
+url = "https://docs.google.com/spreadsheets/d/1lmIk37hcvrUU7kaWeLV-T32vlHT4M0Q0kSh53ETJdRk/export?format=csv"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 REFERENCIA_COSTOS = {
@@ -86,6 +86,7 @@ elif menu == "💰 Análisis":
     st.subheader("Resumen Financiero")
     df_v = cargar_datos("Ventas")
     st.metric("Venta Total", f"L {df_v['Venta'].sum():,.2f}")
+
 
 
 
