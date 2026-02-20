@@ -3,122 +3,135 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-# 1. CONFIGURACIÓN Y ESTILO
+# --- CONFIGURACIÓN ---
 st.set_page_config(page_title="ZERO INK Admin", layout="wide")
-st.title("🚀 ZERO INK - Gestión Profesional")
 
-# 2. DEFINICIÓN DE PRECIOS Y PRODUCTOS (Tu Hoja de Costos interna)
-# Aquí he puesto los precios base. Puedes ajustarlos si cambian.
-PRECIOS_PRODUCTOS = {
-    "Camiseta Algodón (Personalizada)": 250.0,
-    "Camiseta Dry-Fit": 300.0,
-    "Sudadero (Hoodie)": 550.0,
-    "Gorra Trucker": 150.0,
-    "Vinil Textil (por metro)": 180.0,
-    "DTF (por metro lineal)": 220.0,
-    "Otros": 0.0
+# Precios y Costos de Referencia (Tus datos de VS Code)
+PRECIO_METRO_DTF = 200
+REFERENCIA_COSTOS = {
+    "Camisa P/D": 58, "Camisa Algodón": 58, "Camisa Oversize": 120, 
+    "Camisa Kiana": 45, "Camisa Polo": 160, "Sudadera sin Gorro": 160, 
+    "Sudadera con Gorro": 220, "Lámina Sublimación (20x25)": 75
 }
 
-# 3. CONEXIÓN
+# --- CONEXIÓN A GOOGLE SHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-def cargar(pestaña):
+def cargar_datos(pestaña):
     try:
-        data = conn.read(worksheet=pestaña, ttl=0)
-        return data.dropna(how="all")
+        return conn.read(worksheet=pestaña, ttl=0).dropna(how="all")
     except:
         return pd.DataFrame()
 
-df_v = cargar("Ventas")
-df_c = cargar("Compras")
-df_d = cargar("DTF")
+# Cargar datos actuales
+df_pedidos = cargar_datos("Ventas")
+df_dtf = cargar_datos("DTF")
+df_compras = cargar_datos("Compras")
 
-# 4. MENÚ LATERAL
-menu = st.sidebar.selectbox("Acción", ["Ventas", "Compras", "DTF", "Reportes"])
+# --- DISEÑO ---
+st.markdown("""
+    <style>
+    .stButton>button { width: 100%; font-weight: bold; border-radius: 8px; }
+    .stMetric { background-color: #f0f2f6; padding: 15px; border-radius: 10px; border: 1px solid #d1d5db; color: black; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- SECCIÓN VENTAS (PULIDA CON TUS PRECIOS) ---
-if menu == "Ventas":
-    st.header("🛒 Registro de Ventas")
-    with st.form("form_v"):
-        col1, col2 = st.columns(2)
-        
+st.title("📊 Gestión ZERO INK")
+
+with st.sidebar:
+    st.header("🏢 Menú Principal")
+    menu = st.radio("Ir a:", ["📝 Registro de Ventas", "🛒 Lista de Compras", "📉 Control de DTF", "💰 Análisis Final"])
+
+# --- 1. REGISTRO DE VENTAS ---
+if menu == "📝 Registro de Ventas":
+    st.subheader("Registrar Nueva Venta")
+    with st.form("venta_form", clear_on_submit=True):
+        col1, col2, col3 = st.columns(3)
         with col1:
-            f = st.date_input("Fecha", datetime.now())
-            cl = st.text_input("Nombre del Cliente")
-            # Lista de tus artículos reales
-            ar = st.selectbox("Artículo", list(PRECIOS_PRODUCTOS.keys()))
-            ta = st.selectbox("Talla", ["N/A", "S", "M", "L", "XL", "XXL"])
-        
+            cliente = st.text_input("Cliente")
+            articulo = st.selectbox("Artículo", list(REFERENCIA_COSTOS.keys()))
         with col2:
-            co = st.text_input("Color / Descripción")
-            # El precio se sugiere según el artículo, pero puedes editarlo si das descuento
-            precio_sugerido = PRECIOS_PRODUCTOS[ar]
-            ven = st.number_input("Precio de Venta (Lps)", min_value=0.0, value=float(precio_sugerido))
-            cos = st.number_input("Costo de Producción (Lps)", min_value=0.0)
-            
-        if st.form_submit_button("Guardar Venta"):
-            ganancia = ven - cos
-            nueva = pd.DataFrame([{
-                "Fecha": f.strftime("%d/%m/%Y"), 
-                "Cliente": cl, 
-                "Artículo": ar, 
-                "Talla": ta, 
-                "Color": co, 
-                "Costo": cos, 
-                "Venta": ven, 
-                "Ganancia": ganancia
-            }])
-            df_final = pd.concat([df_v, nueva], ignore_index=True)
-            conn.update(worksheet="Ventas", data=df_final)
-            st.success(f"✅ Venta de {ar} guardada. Ganancia: L. {ganancia}")
-            st.balloons()
-
-# --- SECCIÓN COMPRAS ---
-elif menu == "Compras":
-    st.header("📦 Registro de Compras e Insumos")
-    with st.form("form_c"):
-        f = st.date_input("Fecha", datetime.now())
-        prov = st.text_input("Proveedor")
-        item = st.text_input("Insumo (Ej: Tintas, Rollos DTF, Camisetas Lisas)")
-        cant = st.number_input("Cantidad", min_value=0)
-        costo_u = st.number_input("Costo Unitario", min_value=0.0)
+            talla_in = st.text_input("Talla (S, M, L)")
+            color = st.text_input("Color")
+        with col3:
+            precio_v = st.number_input("Precio Venta (Lps)", min_value=0.0)
+            cant = st.number_input("Cantidad", min_value=1, value=1)
         
-        if st.form_submit_button("Registrar Compra"):
-            nueva_c = pd.DataFrame([{
-                "Fecha": f.strftime("%d/%m/%Y"),
-                "Proveedor": prov,
-                "Artículo": item,
-                "Cantidad": cant,
-                "Costo_Unidad": costo_u,
-                "Total": cant * costo_u
-            }])
-            df_final_c = pd.concat([df_c, nueva_c], ignore_index=True)
+        if st.form_submit_button("📥 GUARDAR VENTA"):
+            costo_unitario = REFERENCIA_COSTOS[articulo]
+            tallas = [t.strip().upper() for t in talla_in.split(",")] if talla_in else ["N/A"]
+            
+            nuevos_registros = []
+            for i in range(int(cant)):
+                t_act = tallas[i] if i < len(tallas) else tallas[-1]
+                nuevos_registros.append({
+                    "Fecha": datetime.now().strftime("%d-%m-%Y"),
+                    "Cliente": cliente.upper(),
+                    "Artículo": articulo,
+                    "Talla": t_act,
+                    "Color": color.capitalize(),
+                    "Costo": costo_unitario,
+                    "Venta": precio_v,
+                    "Ganancia": precio_v - costo_unitario
+                })
+            
+            nuevo_df = pd.concat([df_pedidos, pd.DataFrame(nuevos_registros)], ignore_index=True)
+            conn.update(worksheet="Ventas", data=nuevo_df)
+            st.success(f"✅ {cant} Venta(s) registrada(s) en Google Sheets")
+            st.balloons()
+            st.rerun()
+
+    st.markdown("---")
+    if not df_pedidos.empty:
+        st.write("### Historial de Ventas")
+        st.dataframe(df_pedidos, use_container_width=True)
+
+# --- 2. LISTA DE COMPRAS ---
+elif menu == "🛒 Lista de Compras":
+    st.subheader("🛒 ¿Qué necesito comprar?")
+    with st.form("compra_form", clear_on_submit=True):
+        c1, c2, c3, c4 = st.columns(4)
+        cli = c1.text_input("Cliente")
+        art = c2.selectbox("Artículo", list(REFERENCIA_COSTOS.keys()))
+        tal = c3.text_input("Talla")
+        can = c4.number_input("Cant.", min_value=1, value=1)
+        
+        if st.form_submit_button("➕ AÑADIR A LISTA"):
+            nueva_compra = pd.DataFrame([{"Cliente": cli.upper(), "Artículo": art, "Talla": tal.upper(), "Cant": can}])
+            df_final_c = pd.concat([df_compras, nueva_compra], ignore_index=True)
             conn.update(worksheet="Compras", data=df_final_c)
-            st.success("✅ Compra añadida al historial")
+            st.success("Añadido a la lista de compras")
+            st.rerun()
+    
+    st.dataframe(df_compras, use_container_width=True)
 
-# --- SECCIÓN DTF ---
-elif menu == "DTF":
-    st.header("🖨️ Control de Impresión DTF")
-    with st.form("form_d"):
-        f = st.date_input("Fecha", datetime.now())
-        me = st.number_input("Metros Impresos", min_value=0.0, step=0.1)
-        ct = st.number_input("Costo de Material (Lps)", min_value=0.0)
-        if st.form_submit_button("Guardar Registro DTF"):
-            nueva_d = pd.DataFrame([{"Fecha": f.strftime("%d/%m/%Y"), "Metros": me, "Costo_Total": ct}])
-            df_final_d = pd.concat([df_d, nueva_d], ignore_index=True)
+# --- 3. CONTROL DE DTF ---
+elif menu == "📉 Control de DTF":
+    st.subheader("📏 Registro de Gasto DTF")
+    with st.form("dtf_form", clear_on_submit=True):
+        f1, f2 = st.columns(2)
+        met = f1.number_input("Metros impresos", min_value=0.0, step=0.01)
+        if st.form_submit_button("💾 GUARDAR GASTO DTF"):
+            costo = met * PRECIO_METRO_DTF
+            nuevo_dtf = pd.DataFrame([{"Fecha": datetime.now().strftime("%d-%m-%Y"), "Metros": met, "Costo_Total": costo}])
+            df_final_d = pd.concat([df_dtf, nuevo_dtf], ignore_index=True)
             conn.update(worksheet="DTF", data=df_final_d)
-            st.success(f"✅ Se registraron {me} metros de DTF")
+            st.success(f"Gasto de L {costo:.2f} registrado")
+            st.rerun()
+    
+    st.dataframe(df_dtf, use_container_width=True)
 
-# --- SECCIÓN REPORTES ---
-elif menu == "Reportes":
-    st.header("📊 Resumen General de ZERO INK")
-    t1, t2, t3 = st.tabs(["Ventas", "Compras", "DTF"])
-    with t1:
-        st.dataframe(df_v, use_container_width=True)
-        if not df_v.empty:
-            st.metric("Ventas Totales", f"L. {df_v['Venta'].sum():,.2f}")
-            st.metric("Ganancia Total", f"L. {df_v['Ganancia'].sum():,.2f}")
-    with t2:
-        st.dataframe(df_c, use_container_width=True)
-    with t3:
-        st.dataframe(df_d, use_container_width=True)
+# --- 4. ANÁLISIS FINAL ---
+elif menu == "💰 Análisis Final":
+    st.subheader("💹 Resumen Financiero")
+    
+    inv_r = df_pedidos['Costo'].sum() if not df_pedidos.empty else 0
+    ven_b = df_pedidos['Venta'].sum() if not df_pedidos.empty else 0
+    inv_d = df_dtf['Costo_Total'].sum() if not df_dtf.empty else 0
+    neta = (df_pedidos['Ganancia'].sum() if not df_pedidos.empty else 0) - inv_d
+    
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Inversión Ropa", f"L {inv_r:,.2f}")
+    c2.metric("Inversión DTF", f"L {inv_d:,.2f}")
+    c3.metric("Ventas Totales", f"L {ven_b:,.2f}")
+    c4.metric("GANANCIA NETA", f"L {neta:,.2f}")
