@@ -1,5 +1,5 @@
 import streamlit as st
-from streamlit_gsheets import GSheetConnection
+from streamlit_gsheets import GoogleSheetsConnection
 import pandas as pd
 from datetime import datetime
 
@@ -86,3 +86,4 @@ elif menu == "💰 Análisis":
     st.subheader("Resumen Financiero")
     df_v = cargar_datos("Ventas")
     st.metric("Venta Total", f"L {df_v['Venta'].sum():,.2f}")
+
