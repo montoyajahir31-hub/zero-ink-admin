@@ -8,7 +8,7 @@ st.set_page_config(page_title="ZERO INK Admin", layout="wide")
 
 # Conexión con Google Sheets usando el enlace que me pasaste
 url = "https://docs.google.com/spreadsheets/d/1plPWAFs9LsYTqfZqxgiFo9hCOAwtQEtacn05G0kP8YA/edit?usp=sharing"
-conn = st.connection("gsheets", type=GSheetConnection)
+conn = st.connection("gsheets", type=GoogleSheetsConnection)
 
 REFERENCIA_COSTOS = {
     "Camisa P/D": 58, "Camisa Algodón": 58, "Camisa Oversize": 120, 
@@ -86,4 +86,5 @@ elif menu == "💰 Análisis":
     st.subheader("Resumen Financiero")
     df_v = cargar_datos("Ventas")
     st.metric("Venta Total", f"L {df_v['Venta'].sum():,.2f}")
+
 
